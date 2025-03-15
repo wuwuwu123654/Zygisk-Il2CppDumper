@@ -1,27 +1,37 @@
 name: Build
 on:
   workflow_dispatch:
-      inputs:
-        package_name:
-          description: "Package name of the game:"
-          required: true
+    inputs:
+      package_name:
+        description: "Package name of the game:"
+        required: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      PACKAGE_NAME: ${{ github.event.inputs.package_name }}
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-java@v3
-      with:
-        distribution: temurin
-        java-version: 11
-        cache: gradle
-    - run: |
-        chmod +x ./gradlew
-        sed -i 's/moduleDescription = "/moduleDescription = "(${{ github.event.inputs.package_name }}) /g' module.gradle
-        sed -i "s/com.game.packagename/${{ github.event.inputs.package_name }}/g" module/src/main/cpp/game.h
-        ./gradlew :module:assembleRelease
-    - uses: actions/upload-artifact@v3
-      with:
-        name: zygisk-il2cppdumper
-        path: out/magisk_module_release/
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 11
+          cache: gradle
+
+      - name: Modify files and build
+        run: |
+          chmod +x ./gradlew
+          # 转义特殊字符（如斜杠）
+          ESCAPED_PACKAGE_NAME=$(echo "$PACKAGE_NAME" | sed 's/\//\\\//g')
+          sed -i "s/moduleDescription = \"/moduleDescription = \"($PACKAGE_NAME) /g" module.gradle
+          sed -i "s/com.game.packagename/$ESCAPED_PACKAGE_NAME/g" module/src/main/cpp/game.h
+          ./gradlew :module:assembleRelease
+          # 验证输出路径
+          ls -R out/
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: zygisk-il2cppdumper
+          path: out/magisk_module_release/  # 根据实际输出路径调整
